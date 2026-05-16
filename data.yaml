@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../train/images
+test: ../train/images
+
+nc: 1
+names: ['araba_plaka2']
+
+roboflow:
+  workspace: yapay-zeka-vvexu
+  project: yapay-zeka-vvexu
+  version: dataset
+  license: Private
+  url: https://app.roboflow.com/yapay-zeka-vvexu/yapay-zeka-vvexu/dataset

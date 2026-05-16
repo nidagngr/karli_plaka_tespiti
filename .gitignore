@@ -1,0 +1,23 @@
+# Python cache and local environment files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.env
+
+# Large/generated data and runtime outputs
+train/
+plate_project/data/
+plate_project/outputs/
+plate_project/runtime_tcl/
+
+# Temporary runtime files
+plate_project/tmp_sleep.py
+plate_project/tmp_sleep_started.txt
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

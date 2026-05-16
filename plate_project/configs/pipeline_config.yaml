@@ -1,0 +1,32 @@
+project:
+  seed: 42
+
+paths:
+  raw_images: ../train/images
+  test_samples: data/test_samples
+  yolo_weights: ../best1.pt
+  cropped_plates: data/cropped_plates
+  synthetic_pairs_root: data/synthetic_snow_pairs
+  ocr_output_dir: outputs/ocr_results
+  eval_output_dir: outputs/evaluation
+
+yolo:
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  max_det: 10
+  crop_padding: 0.08
+
+gan:
+  enabled: false
+  generator_weights: C:/Users/Nidasu/Downloads/best_generator_by_ssim.pth
+  fallback_generator_weights: C:/Users/Nidasu/Downloads/best_generator_by_loss.pth
+  input_size: 256
+  device: auto
+  save_restored: true
+
+ocr:
+  languages: ["en"]
+  gpu: false
+  min_confidence: 0.2
+  beam_width: 8
+  allowlist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

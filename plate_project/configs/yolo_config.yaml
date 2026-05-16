@@ -1,0 +1,23 @@
+﻿project:
+  name: plate_project
+  seed: 42
+
+paths:
+  # If your labeled YOLO dataset is one level above plate_project, keep this as ../data.yaml
+  dataset_yaml: ../data.yaml
+  output_dir: outputs
+  model_dir: models/yolo
+
+train:
+  pretrained_model: yolov8n.pt
+  epochs: 80
+  imgsz: 960
+  batch: 16
+  workers: 4
+  device: cpu
+  patience: 30
+  optimizer: auto
+  lr0: 0.001
+  cos_lr: true
+  project_name: yolo_plate_detection
+  run_name: yolov8_plate_v1
