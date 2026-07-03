@@ -121,7 +121,7 @@ def run_plate_pipeline(image_path: Path) -> Dict[str, Any]:
                 "stages": stages,
             }
         crop = fallback
-        detection_label = "Fallback: parlak yatay plaka bolgesi"
+        detection_label = "Fallback: plaka benzeri bolge"
 
     refined_plate = refine_inner_plate_crop(crop)
     if refined_plate is not None:
@@ -216,8 +216,12 @@ def run_plate_pipeline(image_path: Path) -> Dict[str, Any]:
 
 def find_plate_like_crop(image_bgr):
     blue_crop = find_blue_strip_plate_crop(image_bgr)
-    if blue_crop is not None:
+    if blue_crop is not None and is_plausible_plate_crop(blue_crop):
         return blue_crop
+
+    dirty_white_crop = find_dirty_white_plate_crop(image_bgr)
+    if dirty_white_crop is not None:
+        return dirty_white_crop
 
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape[:2]
@@ -262,6 +266,60 @@ def find_plate_like_crop(image_bgr):
 
     pad_x = int(bw * 0.18)
     pad_y = int(bh * (0.85 if adjusted_lower_plate else 0.28))
+    x1 = max(0, x - pad_x)
+    y1 = max(0, y - pad_y)
+    x2 = min(w, x + bw + pad_x)
+    y2 = min(h, y + bh + pad_y)
+    return image_bgr[y1:y2, x1:x2]
+
+
+def is_plausible_plate_crop(crop_bgr):
+    if crop_bgr is None or crop_bgr.size == 0:
+        return False
+    hsv = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2HSV)
+    gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+    white_plate_ratio = float(np.mean((hsv[:, :, 1] < 115) & (hsv[:, :, 2] > 95)))
+    very_dark_ratio = float(np.mean(gray < 45))
+    return white_plate_ratio >= 0.04 and very_dark_ratio <= 0.92
+
+
+def find_dirty_white_plate_crop(image_bgr):
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    h, w = gray.shape[:2]
+
+    mask = ((hsv[:, :, 1] < 105) & (hsv[:, :, 2] > 85)).astype(np.uint8) * 255
+    mask[: int(h * 0.42), :] = 0
+    mask[:, : int(w * 0.05)] = 0
+    mask[:, int(w * 0.95) :] = 0
+    closed = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (9, 3)))
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    proposals = []
+    for contour in contours:
+        x, y, bw, bh = cv2.boundingRect(contour)
+        aspect = bw / max(bh, 1)
+        area = bw * bh
+        if not (55 <= bw <= 180 and 18 <= bh <= 70 and 1.45 <= aspect <= 5.2 and area >= 900):
+            continue
+
+        roi = gray[y : y + bh, x : x + bw]
+        dark_ratio = float(np.mean(roi < 95))
+        bright_ratio = float(np.mean(roi > 140))
+        if dark_ratio < 0.34:
+            continue
+
+        lower_bonus = y / max(h, 1)
+        aspect_bonus = 1.0 - min(abs(aspect - 2.3) / 2.3, 1.0)
+        score = area * (1.0 + dark_ratio * 2.0 + bright_ratio * 0.6 + lower_bonus * 2.0 + aspect_bonus * 0.5)
+        proposals.append((score, x, y, bw, bh))
+
+    if not proposals:
+        return None
+
+    _, x, y, bw, bh = sorted(proposals, key=lambda item: item[0], reverse=True)[0]
+    pad_x = max(8, int(bw * 0.18))
+    pad_y = max(6, int(bh * 0.32))
     x1 = max(0, x - pad_x)
     y1 = max(0, y - pad_y)
     x2 = min(w, x + bw + pad_x)

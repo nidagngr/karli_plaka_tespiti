@@ -460,8 +460,9 @@ def choose_best_supported_plate_candidate(candidates: Iterable[str | PlateCandid
             int(item.regex_ok),
             int(len(item.normalized) == preferred_length),
             -abs(len(item.normalized) - preferred_length),
-            _exact_city_variant_priority(item, expanded),
+            _trusted_direct_city_variant_priority(item, expanded),
             _city_prefix_support(item, raw_texts),
+            _exact_city_variant_priority(item, expanded),
             hamming_support_score(item, raw_texts, expanded),
             int(not _is_repaired_candidate(item)),
             item.score,
@@ -500,8 +501,9 @@ def format_supported_plate_candidates(candidates: Iterable[str | PlateCandidate]
             int(item.regex_ok),
             int(len(item.normalized) == preferred_length),
             -abs(len(item.normalized) - preferred_length),
-            _exact_city_variant_priority(item, expanded),
+            _trusted_direct_city_variant_priority(item, expanded),
             _city_prefix_support(item, raw_texts),
+            _exact_city_variant_priority(item, expanded),
             hamming_support_score(item, raw_texts, expanded),
             int(not _is_repaired_candidate(item)),
             item.score,
@@ -584,7 +586,10 @@ def hamming_distance(a: str, b: str) -> int:
 def _raw_candidate_texts(candidates: Iterable[PlateCandidate]) -> List[str]:
     texts = []
     for candidate in candidates:
-        for value in (candidate.raw_text, candidate.text, extract_exact_plate_substring(candidate.raw_text or candidate.text)):
+        raw_values = [candidate.raw_text, extract_exact_plate_substring(candidate.raw_text)]
+        if not candidate.raw_text:
+            raw_values.append(candidate.text)
+        for value in raw_values:
             normalized = strip_plate_prefix(value)
             if 4 <= len(normalized) <= 10:
                 texts.append(normalized)
@@ -623,6 +628,25 @@ def _exact_city_variant_priority(candidate: PlateCandidate, expanded: List[Plate
             continue
         if other_text[0] == text[0] and other_text[1] != text[1] and other_text[2:] == text[2:]:
             return 4
+    return 0
+
+
+def _trusted_direct_city_variant_priority(candidate: PlateCandidate, expanded: List[PlateCandidate]) -> int:
+    text = candidate.normalized
+    if _is_repaired_candidate(candidate) or not candidate.regex_ok:
+        return 0
+    if not (candidate.source.startswith("dark_text/") or candidate.source.startswith("ocr_preprocessing/")):
+        return 0
+    if strip_plate_prefix(candidate.raw_text) != text:
+        return 0
+    if len(text) < 3 or not text[:2].isdigit():
+        return 0
+    for other in expanded:
+        other_text = other.normalized
+        if other_text == text or len(other_text) < 3 or not other_text[:2].isdigit():
+            continue
+        if other_text[0] == text[0] and other_text[1] != text[1] and other_text[2:] == text[2:]:
+            return 8
     return 0
 
 
